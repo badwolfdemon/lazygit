@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"fmt"
+
 	"github.com/jesseduffield/lazycore/pkg/boxlayout"
 	"github.com/jesseduffield/lazygit/pkg/gui/context"
 	"github.com/jesseduffield/lazygit/pkg/gui/types"
@@ -183,13 +185,20 @@ func (self *WindowArrangementHelper) getMidSectionWeights() (int, int) {
 }
 
 // Returns a box with size 1 to be used as padding before, between, or after views
-func spacerBox(window string) *boxlayout.Box {
-	return &boxlayout.Box{Window: window, Size: 1}
+func spacerBox(spacerNumber int) *boxlayout.Box {
+	return &boxlayout.Box{Window: fmt.Sprintf("statusSpacer%d", spacerNumber), Size: 1}
 }
 
 // Returns a box with weight 1 to be used as flexible padding before, between, or after views
-func flexibleSpacerBox(window string) *boxlayout.Box {
-	return &boxlayout.Box{Window: window, Weight: 1}
+func flexibleSpacerBox() *boxlayout.Box {
+	return &boxlayout.Box{Window: "statusSpacer4", Weight: 1}
+}
+
+func insertSpacerBoxes(boxes []*boxlayout.Box) []*boxlayout.Box {
+	for i := len(boxes); i >= 0; i-- {
+		boxes = slices.Insert(boxes, i, spacerBox(i+1))
+	}
+	return boxes
 }
 
 func (self *WindowArrangementHelper) infoSectionChildren(informationStr string, appStatus string) []*boxlayout.Box {
@@ -201,7 +210,7 @@ func (self *WindowArrangementHelper) infoSectionChildren(informationStr string, 
 			prefix = self.c.Tr.FilterPrefix
 		}
 		return []*boxlayout.Box{
-			spacerBox("statusSpacer1"),
+			spacerBox(1),
 			{
 				Window: "searchPrefix",
 				Size:   runewidth.StringWidth(prefix),
@@ -238,36 +247,29 @@ func (self *WindowArrangementHelper) infoSectionChildren(informationStr string, 
 			})
 	}
 
-	if len(result) == 3 {
-		// status - options - information
-		result = slices.Insert(result, 0, spacerBox("statusSpacer1"))
-		result = slices.Insert(result, 2, spacerBox("statusSpacer2"))
-		result = slices.Insert(result, 4, spacerBox("statusSpacer3"))
-		result = slices.Insert(result, 6, spacerBox("statusSpacer4"))
-	} else if len(result) == 2 {
-		if result[0].Window == "appStatus" {
-			// status - information
-			result = slices.Insert(result, 0, spacerBox("statusSpacer1"))
-			result = slices.Insert(result, 2, spacerBox("statusSpacer2"))
-			result = slices.Insert(result, 3, flexibleSpacerBox("statusSpacer3"))
-			result = slices.Insert(result, 5, spacerBox("statusSpacer4"))
-		} else {
-			// options - information
-			result = slices.Insert(result, 0, spacerBox("statusSpacer1"))
-			result = slices.Insert(result, 2, spacerBox("statusSpacer2"))
-			result = slices.Insert(result, 4, spacerBox("statusSpacer3"))
-		}
-	} else if len(result) == 1 {
-		if result[0].Window == "information" {
-			// information
-			result = slices.Insert(result, 0, flexibleSpacerBox("statusSpacer1"))
-			result = slices.Insert(result, 2, spacerBox("statusSpacer2"))
-		} else {
-			// status
+	if len(result) > 0 {
+		// If we have at least one view, insert 1-char wide spacer boxes before,
+		// between, and after them. Note that this changes the length and index
+		// calculations below.
+		result = insertSpacerBoxes(result)
+	}
+
+	if len(result) == 5 && result[1].Window == "appStatus" {
+		// Only status and information are showing; need to insert a flexible
+		// spacer after the 1-width spacer between the two, so that information
+		// is right-aligned
+		result = slices.Insert(result, 3, flexibleSpacerBox())
+	} else if len(result) == 3 {
+		if result[1].Window == "information" {
+			// Only information is showing; need to change the first spacer to
+			// flexible so that information is right-aligned
 			result[0].Size = 0
 			result[0].Weight = 1
-			result = slices.Insert(result, 0, spacerBox("statusSpacer1"))
-			result = slices.Insert(result, 2, spacerBox("statusSpacer2"))
+		} else {
+			// Only status is showing; need to make it flexible so that it
+			// extends over the whole width
+			result[1].Size = 0
+			result[1].Weight = 1
 		}
 	}
 
